@@ -223,6 +223,7 @@ function renderScoreboard() {
                         team.games[gameIndex].game = clean;
                     });
                     renderScoreboard();
+                    saveData();
                 }
             });
 
@@ -246,6 +247,7 @@ function renderScoreboard() {
                 if (country.games[gameIndex].points > 0) {
                     country.games[gameIndex].points--;
                     renderScoreboard();
+                    saveData();
                 }
             });
 
@@ -253,6 +255,7 @@ function renderScoreboard() {
                 country.games[gameIndex].points++;
                 playGoalSound();
                 renderScoreboard();
+                saveData();
             });
 
             controls.appendChild(minusBtn);
@@ -286,10 +289,11 @@ resetBtn.addEventListener("click", () => {
         data.forEach(country => {
             country.games.forEach(game => game.points = 0);
         });
-        previousLeader = null;
+        localStorage.removeItem("worldCupScoreboard");
         renderScoreboard();
     }
 });
+
 
 // Add a new game for every country
 addGameBtn.addEventListener("click", () => {
@@ -302,6 +306,7 @@ addGameBtn.addEventListener("click", () => {
     });
 
     renderScoreboard();
+    saveData();
 });
 
 // Export scores to CSV
@@ -329,5 +334,27 @@ exportBtn.addEventListener("click", () => {
     URL.revokeObjectURL(url);
 });
 
+function saveData() {
+    const saveObject = {
+        data: data,
+        gameNames: gameNames
+    };
+    localStorage.setItem("worldCupScoreboard", JSON.stringify(saveObject));
+}
+
+function loadData() {
+    const saved = localStorage.getItem("worldCupScoreboard");
+    if (saved) {
+        const parsed = JSON.parse(saved);
+        // restore
+        gameNames = parsed.gameNames;
+        parsed.data.forEach((team, i) => {
+            data[i].games = team.games;
+        });
+    }
+}
+
+
 // Initial load
+loadData();
 renderScoreboard();
