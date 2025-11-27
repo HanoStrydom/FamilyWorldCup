@@ -1,5 +1,4 @@
 // WORLD CUP SCOREBOARD DATA
-// Each country has: name, flag, and a list of games with points
 const data = [
     {
         name: "South Africa",
@@ -13,7 +12,7 @@ const data = [
     },
     {
         name: "England",
-        flag: "https://flagcdn.com/w80/gb-eng.png", // England flag
+        flag: "https://flagcdn.com/w80/gb-eng.png",
         games: [
             { game: "Game 1", points: 0 },
             { game: "Game 2", points: 0 },
@@ -43,6 +42,9 @@ const data = [
     }
 ];
 
+// Global shared game names
+let gameNames = data[0].games.map(g => g.game);
+
 const scoreboard = document.getElementById("scoreboard");
 const resetBtn = document.getElementById("reset-btn");
 const addGameBtn = document.getElementById("add-game-btn");
@@ -56,10 +58,10 @@ function getTotalPoints(country) {
 function renderScoreboard() {
     scoreboard.innerHTML = "";
 
-    // Sort countries by highest total points (descending)
+    // Sort by highest total points
     data.sort((a, b) => getTotalPoints(b) - getTotalPoints(a));
 
-    // Find the highest total to mark the leader (if all zero, no leader)
+    // Identify leader
     const totals = data.map(getTotalPoints);
     const maxTotal = Math.max(...totals);
     const haveLeader = maxTotal > 0;
@@ -74,7 +76,6 @@ function renderScoreboard() {
             card.classList.add("leader");
         }
 
-        // Country header
         const header = document.createElement("div");
         header.className = "country-header";
 
@@ -84,7 +85,6 @@ function renderScoreboard() {
         const flagImg = document.createElement("img");
         flagImg.className = "flag-icon";
         flagImg.src = country.flag;
-        flagImg.alt = `${country.name} flag`;
 
         const nameDiv = document.createElement("div");
         nameDiv.className = "country-name";
@@ -102,15 +102,14 @@ function renderScoreboard() {
         totalDiv.appendChild(totalText);
 
         if (haveLeader && total === maxTotal) {
-            const trophySpan = document.createElement("span");
-            trophySpan.className = "trophy";
-            trophySpan.textContent = "🏆";
-            totalDiv.appendChild(trophySpan);
+            const trophy = document.createElement("span");
+            trophy.className = "trophy";
+            trophy.textContent = "🏆";
+            totalDiv.appendChild(trophy);
         }
 
         header.appendChild(countryInfo);
         header.appendChild(totalDiv);
-
         card.appendChild(header);
 
         // Games
@@ -121,14 +120,30 @@ function renderScoreboard() {
             const gameName = document.createElement("div");
             gameName.className = "game-name";
 
-            const ballSpan = document.createElement("span");
-            ballSpan.className = "game-ball";
-            ballSpan.textContent = "⚽";
+            const ball = document.createElement("span");
+            ball.className = "game-ball";
+            ball.textContent = "⚽";
 
             const nameSpan = document.createElement("span");
-            nameSpan.textContent = game.game;
+            nameSpan.textContent = gameNames[gameIndex];
+            nameSpan.className = "editable-game-name";
 
-            gameName.appendChild(ballSpan);
+            // Click to rename
+            nameSpan.addEventListener("click", () => {
+                const newName = prompt("Enter new name for this game:", gameNames[gameIndex]);
+                if (newName && newName.trim() !== "") {
+                    gameNames[gameIndex] = newName.trim();
+
+                    // Update all countries
+                    data.forEach(team => {
+                        team.games[gameIndex].game = newName.trim();
+                    });
+
+                    renderScoreboard();
+                }
+            });
+
+            gameName.appendChild(ball);
             gameName.appendChild(nameSpan);
 
             const controls = document.createElement("div");
@@ -144,16 +159,15 @@ function renderScoreboard() {
             const plusBtn = document.createElement("button");
             plusBtn.textContent = "+";
 
-            // Button events
             minusBtn.addEventListener("click", () => {
-                if (data[countryIndex].games[gameIndex].points > 0) {
-                    data[countryIndex].games[gameIndex].points--;
+                if (country.games[gameIndex].points > 0) {
+                    country.games[gameIndex].points--;
                     renderScoreboard();
                 }
             });
 
             plusBtn.addEventListener("click", () => {
-                data[countryIndex].games[gameIndex].points++;
+                country.games[gameIndex].points++;
                 renderScoreboard();
             });
 
@@ -163,7 +177,6 @@ function renderScoreboard() {
 
             row.appendChild(gameName);
             row.appendChild(controls);
-
             card.appendChild(row);
         });
 
@@ -171,27 +184,22 @@ function renderScoreboard() {
     });
 }
 
-// Reset scores to zero
+// Reset scores
 resetBtn.addEventListener("click", () => {
     const confirmReset = confirm("Are you sure you want to reset all scores?");
-    
     if (confirmReset) {
         data.forEach(country => {
-            country.games.forEach(game => {
-                game.points = 0;
-            });
+            country.games.forEach(game => game.points = 0);
         });
-
         renderScoreboard();
     }
 });
 
-
-// Add a new game for every country
+// Add a new game
 addGameBtn.addEventListener("click", () => {
-    // Assume all countries have same number of games
-    const currentGameCount = data[0].games.length;
-    const newGameName = `Game ${currentGameCount + 1}`;
+    const newGameName = `Game ${gameNames.length + 1}`;
+
+    gameNames.push(newGameName);
 
     data.forEach(country => {
         country.games.push({ game: newGameName, points: 0 });
@@ -200,5 +208,5 @@ addGameBtn.addEventListener("click", () => {
     renderScoreboard();
 });
 
-// Initial render
+// Initial load
 renderScoreboard();

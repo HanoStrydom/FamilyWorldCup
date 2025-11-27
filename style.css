@@ -184,6 +184,17 @@ header p {
     text-align: center;
 }
 
+.editable-game-name {
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.editable-game-name:hover {
+    color: #ffd700;
+}
+
+
+
 /* Responsive tweaks */
 @media (max-width: 600px) {
     .country-header {
