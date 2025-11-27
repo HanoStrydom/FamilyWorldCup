@@ -48,11 +48,87 @@ let gameNames = data[0].games.map(g => g.game);
 const scoreboard = document.getElementById("scoreboard");
 const resetBtn = document.getElementById("reset-btn");
 const addGameBtn = document.getElementById("add-game-btn");
+const exportBtn = document.getElementById("export-btn");
+const podiumEl = document.getElementById("podium");
+
+// Track leader for celebration
+let previousLeader = null;
+
+// Simple Web Audio sounds
+let audioCtx = null;
+
+function getAudioContext() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    return audioCtx;
+}
+
+function playTone(frequency, durationMs) {
+    const ctx = getAudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = "square";
+    osc.frequency.value = frequency;
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    const now = ctx.currentTime;
+    gain.gain.setValueAtTime(0.2, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + durationMs / 1000);
+
+    osc.start(now);
+    osc.stop(now + durationMs / 1000);
+}
+
+function playGoalSound() {
+    playTone(600, 150);
+}
+
+function playLeadChangeSound() {
+    playTone(900, 300);
+}
 
 // Calculate total for a country
 function getTotalPoints(country) {
     return country.games.reduce((sum, g) => sum + g.points, 0);
 }
+
+// Render the podium / standings
+function renderPodium() {
+    const sorted = [...data].sort((a, b) => getTotalPoints(b) - getTotalPoints(a));
+
+    if (!sorted.some(c => getTotalPoints(c) > 0)) {
+        podiumEl.innerHTML = "";
+        return;
+    }
+
+    const ranks = ["🥇", "🥈", "🥉", "4️⃣"];
+
+    let html = `
+        <div class="podium-title">Standings</div>
+        <div class="podium-items">
+    `;
+
+    sorted.forEach((country, index) => {
+        if (index > 3) return;
+        const total = getTotalPoints(country);
+
+        html += `
+            <div class="podium-item">
+                <span class="podium-rank">${ranks[index]}</span>
+                <span class="podium-name">${country.name}</span>
+                <span class="podium-score">${total} pts</span>
+            </div>
+        `;
+    });
+
+    html += "</div>";
+    podiumEl.innerHTML = html;
+}
+
 
 // Render the scoreboard
 function renderScoreboard() {
@@ -61,10 +137,13 @@ function renderScoreboard() {
     // Sort by highest total points
     data.sort((a, b) => getTotalPoints(b) - getTotalPoints(a));
 
-    // Identify leader
     const totals = data.map(getTotalPoints);
     const maxTotal = Math.max(...totals);
     const haveLeader = maxTotal > 0;
+    const currentLeaderName = haveLeader ? data[0].name : null;
+
+    // Decide if we should celebrate a new leader
+    const leaderJustChanged = haveLeader && previousLeader && previousLeader !== currentLeaderName;
 
     data.forEach((country, countryIndex) => {
         const total = getTotalPoints(country);
@@ -72,8 +151,13 @@ function renderScoreboard() {
         const card = document.createElement("div");
         card.className = "country-card";
 
-        if (haveLeader && total === maxTotal) {
+        const isLeader = haveLeader && total === maxTotal;
+
+        if (isLeader) {
             card.classList.add("leader");
+            if (leaderJustChanged && country.name === currentLeaderName) {
+                card.classList.add("celebrate");
+            }
         }
 
         const header = document.createElement("div");
@@ -85,6 +169,7 @@ function renderScoreboard() {
         const flagImg = document.createElement("img");
         flagImg.className = "flag-icon";
         flagImg.src = country.flag;
+        flagImg.alt = `${country.name} flag`;
 
         const nameDiv = document.createElement("div");
         nameDiv.className = "country-name";
@@ -101,7 +186,7 @@ function renderScoreboard() {
 
         totalDiv.appendChild(totalText);
 
-        if (haveLeader && total === maxTotal) {
+        if (isLeader) {
             const trophy = document.createElement("span");
             trophy.className = "trophy";
             trophy.textContent = "🏆";
@@ -128,17 +213,15 @@ function renderScoreboard() {
             nameSpan.textContent = gameNames[gameIndex];
             nameSpan.className = "editable-game-name";
 
-            // Click to rename
+            // Click to rename game globally
             nameSpan.addEventListener("click", () => {
                 const newName = prompt("Enter new name for this game:", gameNames[gameIndex]);
                 if (newName && newName.trim() !== "") {
-                    gameNames[gameIndex] = newName.trim();
-
-                    // Update all countries
+                    const clean = newName.trim();
+                    gameNames[gameIndex] = clean;
                     data.forEach(team => {
-                        team.games[gameIndex].game = newName.trim();
+                        team.games[gameIndex].game = clean;
                     });
-
                     renderScoreboard();
                 }
             });
@@ -168,6 +251,7 @@ function renderScoreboard() {
 
             plusBtn.addEventListener("click", () => {
                 country.games[gameIndex].points++;
+                playGoalSound();
                 renderScoreboard();
             });
 
@@ -182,6 +266,17 @@ function renderScoreboard() {
 
         scoreboard.appendChild(card);
     });
+
+    // Update podium
+    renderPodium();
+
+    // Play sound if leader changed
+    if (leaderJustChanged) {
+        playLeadChangeSound();
+    }
+
+    // Store current leader for next render
+    previousLeader = currentLeaderName;
 }
 
 // Reset scores
@@ -191,11 +286,12 @@ resetBtn.addEventListener("click", () => {
         data.forEach(country => {
             country.games.forEach(game => game.points = 0);
         });
+        previousLeader = null;
         renderScoreboard();
     }
 });
 
-// Add a new game
+// Add a new game for every country
 addGameBtn.addEventListener("click", () => {
     const newGameName = `Game ${gameNames.length + 1}`;
 
@@ -206,6 +302,31 @@ addGameBtn.addEventListener("click", () => {
     });
 
     renderScoreboard();
+});
+
+// Export scores to CSV
+exportBtn.addEventListener("click", () => {
+    // Header: Country, Total, each game
+    const header = ["Country", "Total", ...gameNames];
+    const rows = [header];
+
+    data.forEach(country => {
+        const total = getTotalPoints(country);
+        const gamePoints = country.games.map(g => g.points);
+        rows.push([country.name, total, ...gamePoints]);
+    });
+
+    const csvContent = rows.map(r => r.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "family-world-cup-scores.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
 });
 
 // Initial load

@@ -33,11 +33,12 @@ header p {
     padding: 0 20px 10px 20px;
     display: flex;
     justify-content: flex-end;
+    flex-wrap: wrap;
     gap: 10px;
 }
 
 .controls button {
-    padding: 8px 14px;
+    padding: 8px 16px;
     font-size: 0.95rem;
     border-radius: 20px;
     border: none;
@@ -53,6 +54,60 @@ header p {
     box-shadow: 0 2px 6px rgba(0,0,0,0.4);
     background: #e9ecef;
 }
+
+/* Podium / standings (new, centered clean layout) */
+.podium {
+    max-width: 1000px;
+    margin: 10px auto 20px auto;
+    padding: 10px 20px;
+    text-align: center;
+}
+
+.podium-title {
+    font-size: 1.2rem;
+    font-weight: bold;
+    margin-bottom: 8px;
+    color: #f1faee;
+    opacity: 0.9;
+}
+
+.podium-items {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.podium-item {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 8px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.95rem;
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255,255,255,0.18);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.podium-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 10px rgba(255,255,255,0.25);
+}
+
+.podium-rank {
+    font-size: 1.1rem;
+}
+
+.podium-name {
+    font-weight: bold;
+}
+
+.podium-score {
+    opacity: 0.8;
+}
+
 
 /* Scoreboard layout */
 .scoreboard {
@@ -81,6 +136,24 @@ header p {
 .country-card.leader {
     border-color: #ffd700;
     box-shadow: 0 0 18px rgba(255, 215, 0, 0.7);
+}
+
+/* Celebration animation when a new leader appears */
+.country-card.celebrate {
+    animation: leader-celebrate 0.8s ease-out;
+}
+
+@keyframes leader-celebrate {
+    0% {
+        transform: scale(1);
+    }
+    25% {
+        transform: scale(1.05);
+        box-shadow: 0 0 24px rgba(255, 215, 0, 0.9);
+    }
+    100% {
+        transform: scale(1);
+    }
 }
 
 /* Header inside card */
@@ -160,7 +233,7 @@ header p {
 }
 
 .score-controls button {
-    padding: 5px 11px;
+    padding: 6px 13px;
     margin: 0 4px;
     background: #f1faee;
     color: #1d3557;
@@ -184,6 +257,7 @@ header p {
     text-align: center;
 }
 
+/* Editable game names: clickable but not like a normal link */
 .editable-game-name {
     cursor: pointer;
     text-decoration: none;
@@ -192,8 +266,6 @@ header p {
 .editable-game-name:hover {
     color: #ffd700;
 }
-
-
 
 /* Responsive tweaks */
 @media (max-width: 600px) {
@@ -209,5 +281,10 @@ header p {
 
     .total-points {
         align-self: flex-start;
+    }
+
+    .score-controls button {
+        padding: 8px 16px;
+        font-size: 1.1rem;
     }
 }
