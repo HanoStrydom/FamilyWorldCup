@@ -1,5 +1,30 @@
-// WORLD CUP SCOREBOARD DATA
-const data = [
+// ---------- FIREBASE IMPORTS ----------
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
+import {
+    getDatabase,
+    ref,
+    set,
+    onValue
+} from "https://www.gstatic.com/firebasejs/10.12.4/firebase-database.js";
+
+// ---------- FIREBASE CONFIG ----------
+const firebaseConfig = {
+    apiKey: "AIzaSyAV-tbz4CY6III191C7BqK_Xa5t5w3rInQ",
+    authDomain: "family-world-cup-scoreboard.firebaseapp.com",
+    databaseURL: "https://family-world-cup-scoreboard-default-rtdb.europe-west1.firebasedatabase.app/",
+    projectId: "family-world-cup-scoreboard",
+    storageBucket: "family-world-cup-scoreboard.firebasestorage.app",
+    messagingSenderId: "481345224358",
+    appId: "1:481345224358:web:fc65e591dc44d9de433e67",
+    measurementId: "G-61LQDESP64"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const scoreboardRef = ref(db, "scoreboardState");
+
+// ---------- LOCAL STATE SETUP ----------
+const initialData = [
     {
         name: "South Africa",
         flag: "https://flagcdn.com/w80/za.png",
@@ -42,7 +67,8 @@ const data = [
     }
 ];
 
-// Global shared game names
+// deep copy so we can mutate safely
+let data = JSON.parse(JSON.stringify(initialData));
 let gameNames = data[0].games.map(g => g.game);
 
 const scoreboard = document.getElementById("scoreboard");
@@ -54,7 +80,10 @@ const podiumEl = document.getElementById("podium");
 // Track leader for celebration
 let previousLeader = null;
 
-// Simple Web Audio sounds
+// To avoid loops when we write and then receive our own update
+let isLocalWrite = false;
+
+// ---------- AUDIO ----------
 let audioCtx = null;
 
 function getAudioContext() {
@@ -91,12 +120,24 @@ function playLeadChangeSound() {
     playTone(900, 300);
 }
 
-// Calculate total for a country
+// ---------- HELPERS ----------
 function getTotalPoints(country) {
     return country.games.reduce((sum, g) => sum + g.points, 0);
 }
 
-// Render the podium / standings
+// push current state to Firebase
+function pushStateToCloud() {
+    isLocalWrite = true;
+    set(scoreboardRef, {
+        data,
+        gameNames
+    }).finally(() => {
+        // tiny delay so the onValue listener doesn't treat our own write as remote
+        setTimeout(() => { isLocalWrite = false; }, 100);
+    });
+}
+
+// ---------- PODIUM ----------
 function renderPodium() {
     const sorted = [...data].sort((a, b) => getTotalPoints(b) - getTotalPoints(a));
 
@@ -129,8 +170,7 @@ function renderPodium() {
     podiumEl.innerHTML = html;
 }
 
-
-// Render the scoreboard
+// ---------- MAIN RENDER ----------
 function renderScoreboard() {
     scoreboard.innerHTML = "";
 
@@ -142,7 +182,6 @@ function renderScoreboard() {
     const haveLeader = maxTotal > 0;
     const currentLeaderName = haveLeader ? data[0].name : null;
 
-    // Decide if we should celebrate a new leader
     const leaderJustChanged = haveLeader && previousLeader && previousLeader !== currentLeaderName;
 
     data.forEach((country, countryIndex) => {
@@ -213,7 +252,7 @@ function renderScoreboard() {
             nameSpan.textContent = gameNames[gameIndex];
             nameSpan.className = "editable-game-name";
 
-            // Click to rename game globally
+            // Rename game globally
             nameSpan.addEventListener("click", () => {
                 const newName = prompt("Enter new name for this game:", gameNames[gameIndex]);
                 if (newName && newName.trim() !== "") {
@@ -222,8 +261,8 @@ function renderScoreboard() {
                     data.forEach(team => {
                         team.games[gameIndex].game = clean;
                     });
+                    pushStateToCloud();
                     renderScoreboard();
-                    saveData();
                 }
             });
 
@@ -246,16 +285,16 @@ function renderScoreboard() {
             minusBtn.addEventListener("click", () => {
                 if (country.games[gameIndex].points > 0) {
                     country.games[gameIndex].points--;
+                    pushStateToCloud();
                     renderScoreboard();
-                    saveData();
                 }
             });
 
             plusBtn.addEventListener("click", () => {
                 country.games[gameIndex].points++;
                 playGoalSound();
+                pushStateToCloud();
                 renderScoreboard();
-                saveData();
             });
 
             controls.appendChild(minusBtn);
@@ -270,48 +309,41 @@ function renderScoreboard() {
         scoreboard.appendChild(card);
     });
 
-    // Update podium
     renderPodium();
 
-    // Play sound if leader changed
     if (leaderJustChanged) {
         playLeadChangeSound();
     }
 
-    // Store current leader for next render
     previousLeader = currentLeaderName;
 }
 
-// Reset scores
+// ---------- BUTTON HANDLERS ----------
 resetBtn.addEventListener("click", () => {
     const confirmReset = confirm("Are you sure you want to reset all scores?");
     if (confirmReset) {
         data.forEach(country => {
             country.games.forEach(game => game.points = 0);
         });
-        localStorage.removeItem("worldCupScoreboard");
+        previousLeader = null;
+        pushStateToCloud();
         renderScoreboard();
     }
 });
 
-
-// Add a new game for every country
 addGameBtn.addEventListener("click", () => {
     const newGameName = `Game ${gameNames.length + 1}`;
-
     gameNames.push(newGameName);
 
     data.forEach(country => {
         country.games.push({ game: newGameName, points: 0 });
     });
 
+    pushStateToCloud();
     renderScoreboard();
-    saveData();
 });
 
-// Export scores to CSV
 exportBtn.addEventListener("click", () => {
-    // Header: Country, Total, each game
     const header = ["Country", "Total", ...gameNames];
     const rows = [header];
 
@@ -326,35 +358,38 @@ exportBtn.addEventListener("click", () => {
     const url = URL.createObjectURL(blob);
 
     const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", "family-world-cup-scores.csv");
+    link.href = url;
+    link.download = "family-world-cup-scores.csv";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 });
 
-function saveData() {
-    const saveObject = {
-        data: data,
-        gameNames: gameNames
-    };
-    localStorage.setItem("worldCupScoreboard", JSON.stringify(saveObject));
-}
+// ---------- REAL-TIME SYNC SETUP ----------
 
-function loadData() {
-    const saved = localStorage.getItem("worldCupScoreboard");
-    if (saved) {
-        const parsed = JSON.parse(saved);
-        // restore
-        gameNames = parsed.gameNames;
-        parsed.data.forEach((team, i) => {
-            data[i].games = team.games;
-        });
+// Listen for changes from Firebase (other devices)
+onValue(scoreboardRef, snapshot => {
+    const value = snapshot.val();
+
+    if (!value) {
+        // First time: push our initial state to the cloud
+        pushStateToCloud();
+        renderScoreboard();
+        return;
     }
-}
 
+    if (isLocalWrite) {
+        // This change came from us; we've already updated locally
+        return;
+    }
 
-// Initial load
-loadData();
+    // Replace local state with cloud state
+    data = value.data;
+    gameNames = value.gameNames;
+    previousLeader = null;
+    renderScoreboard();
+});
+
+// Initial render (in case DB is slow, user still sees something)
 renderScoreboard();
