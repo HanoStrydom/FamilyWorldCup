@@ -3,6 +3,8 @@ console.log("SCRIPT LOADED!");
 
 // ---------- FIREBASE IMPORTS ----------
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
+let isMuted = false;
+
 import {
     getDatabase,
     ref,
@@ -25,6 +27,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const scoreboardRef = ref(db, "scoreboardState");
+const nootRef = ref(db, "nootVirNootState");
 
 // ---------- LOCAL STATE SETUP ----------
 const initialData = [
@@ -97,6 +100,7 @@ function getAudioContext() {
 }
 
 function playTone(frequency, durationMs) {
+    if (isMuted) return;  // MUTE BLOCKS ALL SOUND
     const ctx = getAudioContext();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
@@ -114,6 +118,20 @@ function playTone(frequency, durationMs) {
     osc.start(now);
     osc.stop(now + durationMs / 1000);
 }
+
+const muteBtn = document.getElementById("mute-btn");
+
+muteBtn.addEventListener("click", () => {
+    isMuted = !isMuted;
+    muteBtn.textContent = isMuted ? "🔇" : "🔊";
+
+    // Trigger animation
+    muteBtn.classList.remove("animate");
+    void muteBtn.offsetWidth; // forces reflow so animation restarts
+    muteBtn.classList.add("animate");
+});
+
+
 
 function playGoalSound() {
     playTone(600, 150);
@@ -394,5 +412,172 @@ onValue(scoreboardRef, snapshot => {
     renderScoreboard();
 });
 
+// ------------------ NOOT-VIR-NOOT ------------------
+
+// ------------------ NOOT-VIR-NOOT (UPGRADED) ------------------
+
+let nootPlayers = [
+    { name: "Player 1", points: 0 },
+    { name: "Player 2", points: 0 },
+    { name: "Player 3", points: 0 },
+    { name: "Player 4", points: 0 },
+    { name: "Player 5", points: 0 },
+    { name: "Player 6", points: 0 },
+    { name: "Player 7", points: 0 }
+];
+
+let previousNootLeader = null;
+let nootIsLocalWrite = false;
+
+const nootList = document.getElementById("noot-list");
+
+// Save to Firebase
+function pushNootToCloud() {
+    nootIsLocalWrite = true;
+    set(nootRef, nootPlayers).finally(() => {
+        setTimeout(() => { nootIsLocalWrite = false; }, 100);
+    });
+}
+
+// Sorting by points (descending)
+function sortNootPlayers() {
+    nootPlayers.sort((a, b) => b.points - a.points);
+}
+
+// Render leaderboard podium
+function renderNootPodium() {
+    const podium = document.getElementById("noot-podium");
+    let sorted = [...nootPlayers].sort((a, b) => b.points - a.points);
+
+    // Hide if everyone has 0 points
+    if (!sorted.some(p => p.points > 0)) {
+        podium.innerHTML = "";
+        return;
+    }
+
+    const ranks = ["🥇", "🥈", "🥉"];
+
+    let html = `
+        <div class="podium-title">Standings</div>
+        <div class="podium-items">
+    `;
+
+    // *** TOP 3 ONLY ***
+    sorted.slice(0, 3).forEach((p, index) => {
+        html += `
+            <div class="podium-item">
+                <span class="podium-rank">${ranks[index]}</span>
+                <span class="podium-name">${p.name}</span>
+                <span class="podium-score">${p.points} pts</span>
+            </div>
+        `;
+    });
+
+    html += `</div>`;
+    podium.innerHTML = html;
+}
+
+
+function renderNootSection() {
+    sortNootPlayers();
+    nootList.innerHTML = "";
+
+    const leader = nootPlayers[0]?.name || null;
+    const leaderChanged = previousNootLeader && previousNootLeader !== leader;
+
+    nootPlayers.forEach((p, index) => {
+        const item = document.createElement("div");
+        item.className = "noot-item";
+
+        if (index === 0 && leaderChanged) {
+            item.style.animation = "leaderFlash 0.7s ease-out";
+            playLeadChangeSound();
+        }
+
+        // Editable name
+        const name = document.createElement("div");
+        name.className = "noot-name";
+        name.textContent = p.name;
+
+        name.addEventListener("click", () => {
+            const newName = prompt("Enter new name:", p.name);
+            if (newName && newName.trim() !== "") {
+                p.name = newName.trim();
+                pushNootToCloud();
+                renderNootSection();
+            }
+        });
+
+        // Controls
+        const controls = document.createElement("div");
+        controls.className = "noot-controls";
+
+        const minusBtn = document.createElement("button");
+        minusBtn.textContent = "-";
+        minusBtn.addEventListener("click", () => {
+            if (p.points > 0) p.points--;
+            pushNootToCloud();
+            renderNootSection();
+        });
+
+        const pointsDisplay = document.createElement("span");
+        pointsDisplay.textContent = `${p.points} pts`;
+        pointsDisplay.style.margin = "0 10px";
+
+        const plusBtn = document.createElement("button");
+        plusBtn.textContent = "+";
+        plusBtn.addEventListener("click", () => {
+            p.points++;
+            playGoalSound();
+            pushNootToCloud();
+            renderNootSection();
+        });
+
+        controls.appendChild(minusBtn);
+        controls.appendChild(pointsDisplay);
+        controls.appendChild(plusBtn);
+
+        item.appendChild(name);
+        item.appendChild(controls);
+        nootList.appendChild(item);
+    });
+
+    renderNootPodium();
+    previousNootLeader = leader;
+}
+
+const resetNootBtn = document.getElementById("reset-noot-btn");
+
+resetNootBtn.addEventListener("click", () => {
+    const confirmReset = confirm("Are you sure you want to reset all Noot-vir-Noot scores?");
+    if (confirmReset) {
+        nootPlayers.forEach(p => p.points = 0);
+        previousNootLeader = null;
+        pushNootToCloud();
+        renderNootSection();
+    }
+});
+
+
+// Firebase listener
+onValue(nootRef, snapshot => {
+    const value = snapshot.val();
+
+    if (!value) {
+        pushNootToCloud();
+        renderNootSection();
+        return;
+    }
+
+    if (nootIsLocalWrite) return;
+
+    nootPlayers = value;
+    previousNootLeader = null;
+    renderNootSection();
+});
+
+
 // Initial render (in case DB is slow, user still sees something)
 renderScoreboard();
+renderNootSection();
+

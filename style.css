@@ -288,3 +288,149 @@ header p {
         font-size: 1.1rem;
     }
 }
+
+/* Divider */
+.section-divider {
+    margin: 40px auto;
+    width: 80%;
+    border: 0;
+    height: 2px;
+    background: rgba(255,255,255,0.25);
+    border-radius: 1px;
+}
+
+/* Noot-vir-Noot section */
+.noot-container {
+    max-width: 700px;
+    margin: 20px auto 40px auto;
+    padding: 20px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 16px;
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: #f1faee;
+}
+
+.noot-container h2 {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.noot-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255,255,255,0.08);
+    padding: 10px 14px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+}
+
+.noot-name {
+    font-size: 1.1rem;
+    font-weight: bold;
+}
+
+.noot-controls button {
+    padding: 6px 12px;
+    background: #f1faee;
+    color: #1d3557;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.noot-controls button:hover {
+    background: #e9ecef;
+}
+
+/* Mini podium */
+.noot-podium {
+    text-align: center;
+    margin-bottom: 15px;
+    font-size: 1.1rem;
+    color: #ffd700;
+}
+
+/* Leader flash */
+@keyframes leaderFlash {
+    0% { transform: scale(1); box-shadow: 0 0 0px gold; }
+    50% { transform: scale(1.05); box-shadow: 0 0 12px gold; }
+    100% { transform: scale(1); box-shadow: 0 0 0px gold; }
+}
+
+/* Minus button */
+.noot-controls button:nth-child(1) {
+    background: #ffdddd;
+    color: #7a0000;
+}
+
+.noot-controls button:nth-child(1):hover {
+    background: #ffbbbb;
+}
+
+.reset-btn {
+    padding: 8px 16px;
+    font-size: 0.95rem;
+    border-radius: 20px;
+    border: none;
+    cursor: pointer;
+    background: #f1faee;
+    color: #1d3557;
+    font-weight: bold;
+    transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+    margin-bottom: 15px;
+}
+
+.reset-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    background: #e9ecef;
+}
+
+#noot-section .reset-btn {
+    display: block;
+    margin: 0 auto 15px auto;
+    text-align: center;
+}
+
+.mute-container {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+}
+
+.mute-btn {
+    background: rgba(255, 255, 255, 0.85);
+    border: none;
+    padding: 8px 12px;
+    border-radius: 50%;
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
+}
+
+.mute-btn:hover {
+    background: white;
+    transform: scale(1.1);
+}
+
+@keyframes muteFade {
+    0% {
+        opacity: 0.2;
+        transform: scale(0.7);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.15);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.mute-btn.animate {
+    animation: muteFade 0.25s ease-out;
+}

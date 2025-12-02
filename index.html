@@ -9,9 +9,14 @@
 <body>
 
 <header>
-    <h1>Family World Cup Scoreboard 🏆</h1>
-    <p>Keep track of each country's games and total points</p>
+    <h1>Family Games 2025 🏆</h1>
+    <p>Keep track of each country's / player's games and total points</p>
 </header>
+
+<div class="mute-container">
+    <button id="mute-btn" class="mute-btn">🔊</button>
+</div>
+
 
 <!-- Controls -->
 <div class="controls">
@@ -25,6 +30,18 @@
 
 <!-- Scoreboard -->
 <div id="scoreboard" class="scoreboard"></div>
+
+<hr class="section-divider">
+
+<div id="noot-section" class="noot-container">
+    <h2>Noot-vir-Noot 🎵</h2>
+    <button id="reset-noot-btn" class="reset-btn">Reset Scores</button>
+    <div id="noot-podium" class="podium"></div>
+
+    <div id="noot-list"></div>
+</div>
+
+
 
 <!-- Use type="module" so we can import Firebase in script.js -->
 <script type="module" src="script.js?v=1.0"></script>
